@@ -1,0 +1,5 @@
+aiohttp[speedups]
+aiohttp_cors
+requests
+toml
+Pillow
