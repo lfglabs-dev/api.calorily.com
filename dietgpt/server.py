@@ -28,7 +28,7 @@ class WebServer:
             return web.json_response({"error": "an unexpected error happened"})
 
     def build_app(self):
-        app = web.Application()
+        app = web.Application(client_max_size=100000000)
 
         # Add a cleanup context for closing the session on shutdown
         async def close_session(app):

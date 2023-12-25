@@ -22,9 +22,9 @@ async def send_image_to_gpt_api(session, api_key, encoded_image):
     {
       "name": "Name of the ingredient",
       "amount": "Estimated amount of this ingredient",
-      "carbs": "Numeric value representing the carbohydrates in grams (g)",
-      "proteins": "Numeric value representing the proteins in grams (g)",
-      "fats": "Numeric value representing the fats in grams (g)"
+      "carbs": Float value representing the carbohydrates in grams (g),
+      "proteins": Float value representing the proteins in grams (g),
+      "fats": Float value representing the fats in grams (g)
     }
     // Repeat for the most important ingredients
   ]
