@@ -16,8 +16,8 @@ async def send_image_to_gpt_api(session, api_key, encoded_image):
                         "type": "text",
                         "text": """Analyze the food image provided and output your best estimation in this structured format. When unsure, make up something plausible. Give the quantities for the portion shown in the picture only.
 {
-  "type": "Type of the food (e.g., salad, dish, dessert)",
-  "name": "Name of the food (e.g., pizza)",
+  "type": "Type of the food (Breakfast, Lunch, Dinner, or Snacks)",
+  "name": "Name of the food (e.g., Pizza)",
   "ingredients": [
     {
       "name": "Name of the ingredient",
