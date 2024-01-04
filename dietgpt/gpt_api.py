@@ -1,7 +1,7 @@
 import aiohttp
 import asyncio
 import json
-from utils import clean_json
+from utils import clean_json, ensure_typing
 
 
 async def send_image_to_gpt_api(session, api_key, encoded_image):
@@ -46,7 +46,8 @@ async def send_image_to_gpt_api(session, api_key, encoded_image):
         ) as response:
             response_data = await response.json()
             message_content = response_data["choices"][0]["message"]["content"]
-            return json.loads(clean_json(message_content))
+            output = json.loads(clean_json(message_content))
+            return ensure_typing(output)
 
     except Exception as e:
         return {"error": str(e), "response": await response.text()}

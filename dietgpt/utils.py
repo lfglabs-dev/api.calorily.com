@@ -9,11 +9,22 @@ def clean_json(json_string):
     match = re.search(r"\{.*\}", cleaned_string, re.DOTALL)
     return match.group().strip() if match else ""
 
-
-def extract_float(s):
-    match = re.search(r"[-+]?\d*\.\d+|\d+", s)
-    return float(match.group()) if match else None
-
-
 def calculate_calories(carbs, proteins, fats):
     return (carbs * 4) + (proteins * 4) + (fats * 9)
+
+
+def ensure_typing(data):
+    if 'ingredients' in data:
+        for ingredient in data['ingredients']:
+            ingredient['carbs'] = extract_float(ingredient.get('carbs', 0))
+            ingredient['proteins'] = extract_float(ingredient.get('proteins', 0))
+            ingredient['fats'] = extract_float(ingredient.get('fats', 0))
+    return data
+
+def extract_float(value):
+    if isinstance(value, float):
+        return value
+    if isinstance(value, str):
+        match = re.search(r'\d+(\.\d+)?', value)
+        return float(match.group()) if match else 0.0
+    return 0.0
