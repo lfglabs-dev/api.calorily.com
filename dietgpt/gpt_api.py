@@ -14,7 +14,7 @@ async def send_image_to_gpt_api(session, api_key, encoded_image):
                 "content": [
                     {
                         "type": "text",
-                        "text": """Analyze the food image provided and output your best estimation in this structured format. When unsure, make up something plausible. Give the quantities for the portion shown in the picture only. If impossible, just output the reason in a very short sentence. {"name": "Name of the food (e.g., Pizza)", "ingredients": [{"name": "Name of the ingredient", "amount": "Estimated amount of this ingredient", "carbs": Float value representing the carbohydrates in grams (g), "proteins": Float value representing the proteins in grams (g), "fats": Float value representing the fats in grams (g)}]}""",
+                        "text": """Analyze the food image provided and output your best estimation in this structured format, don't output the unit. When unsure, make up something plausible. Give an estimation of the quantities for the portion shown in the picture only. If impossible, just output the reason in a very short sentence. {"name": "Name of the food (e.g., Pizza)", "ingredients": [{"name": "Name of the ingredient", "amount": "Estimated amount of this ingredient in grams (g)", "carbs": Float value representing the carbohydrates in grams (g), "proteins": Float value representing the proteins in grams (g), "fats": Float value representing the fats in grams (g)}]}""",
                     },
                     {
                         "type": "image_url",
@@ -32,6 +32,7 @@ async def send_image_to_gpt_api(session, api_key, encoded_image):
         ) as response:
             response_data = await response.json()
             message_content = response_data["choices"][0]["message"]["content"]
+            print("ORIGINAL MESSAGE NORMAL:", message_content)
             try:
                 output = json.loads(clean_json(message_content))
             except Exception as parsingException:
@@ -54,27 +55,14 @@ async def send_improve_image_to_gpt_api(
                 "content": [
                     {
                         "type": "text",
-                        "text": """You already analyzed the food image provided but made a mistake. Output your best estimation in a structured format. When unsure, make up something plausible.
+                        "text": """You already analyzed the food image provided but made a mistake. Output your best estimation in a structured format, don't output the units. When unsure, make up something plausible.
 Previous response:
 """
                         + str(prev_response)
                         + "Remark:\n\""
                         + str(remark)
                         + """\"\nExpected format:
-{
-  "type": "Type of the food (Breakfast, Lunch, Dinner, or Snacks)",
-  "name": "Name of the food (e.g., Pizza)",
-  "ingredients": [
-    {
-      "name": "Name of the ingredient",
-      "amount": "Estimated amount of this ingredient",
-      "carbs": Float value representing the carbohydrates in grams (g),
-      "proteins": Float value representing the proteins in grams (g),
-      "fats": Float value representing the fats in grams (g)
-    }
-    // Repeat for the most important ingredients
-  ]
-}""",
+{"name": "Name of the food (e.g., Pizza)", "ingredients": [{"name": "Name of the ingredient", "amount": "Estimated amount of this ingredient in grams (g)", "carbs": Float value representing the carbohydrates in grams (g), "proteins": Float value representing the proteins in grams (g), "fats": Float value representing the fats in grams (g)}]}""",
                     },
                     {
                         "type": "image_url",
@@ -86,15 +74,17 @@ Previous response:
         "max_tokens": 2500,
     }
 
-    print(payload)
-
     try:
         async with session.post(
             "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
         ) as response:
             response_data = await response.json()
             message_content = response_data["choices"][0]["message"]["content"]
-            output = json.loads(clean_json(message_content))
+            print("ORIGINAL MESSAGE:", message_content)
+            try:
+                output = json.loads(clean_json(message_content))
+            except Exception as parsingException:
+                return {"error": str(parsingException), "response": message_content}
             return ensure_typing(output)
 
     except Exception as e:
