@@ -37,7 +37,10 @@ async def send_image_to_gpt_api(session, api_key, encoded_image):
                 output = json.loads(clean_json(message_content))
             except Exception as parsingException:
                 return {"error": str(parsingException), "response": message_content}
-            return ensure_typing(output)
+            print("JSONED MESSAGED:", output)
+            ensure_typed = ensure_typing(output)
+            print("TYPED MESSAGE:", ensure_typed)
+            return ensure_typed
 
     except Exception as e:
         return {"error": str(e), "response": await response.text()}
