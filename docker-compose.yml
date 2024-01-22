@@ -1,10 +1,10 @@
 version: "3"
 
 services:
-  dietgpt:
-    container_name: dietgpt
+  calorily:
+    container_name: calorily
     build: .
-    command: python -u dietgpt
+    command: python -u calorily
     restart: always
     ports:
       - 8080:8080
@@ -18,8 +18,8 @@ services:
     volumes:
       - ssl_data:/etc/resty-auto-ssl
     environment:
-      ALLOWED_DOMAINS: "api.dietgpt.gouv.media"
-      SITES: "api.dietgpt.gouv.media=dietgpt:8080"
+      ALLOWED_DOMAINS: "api.calorily.com"
+      SITES: "api.calorily.com=calorily:8080"
 
 volumes:
   ssl_data:
