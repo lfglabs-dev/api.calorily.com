@@ -14,7 +14,7 @@ async def send_image_to_gpt_api(session, api_key, encoded_image):
                 "content": [
                     {
                         "type": "text",
-                        "text": """Analyze the food image provided and output your best estimation in this structured format, don't output the unit. When unsure, make up something plausible. Give an estimation of the quantities for the portion shown in the picture only. If impossible, just output the reason in a very short sentence. {"name": "Name of the food (e.g., Pizza)", "ingredients": [{"name": "Name of the ingredient", "amount": "Estimated amount of this ingredient in grams (g)", "carbs": Float value representing the carbohydrates in grams (g), "proteins": Float value representing the proteins in grams (g), "fats": Float value representing the fats in grams (g)}]}""",
+                        "text": """Analyze the food image provided and output your best estimation in this structured format, don't output the unit. When unsure, make up something plausible. Give an estimation of the quantities for the portion shown in the picture only. If impossible, just output the reason in field "error". {"name": "Name of the food (e.g., Pizza)", "ingredients": [{"name": "Name of the ingredient", "amount": "Estimated amount of this ingredient in grams (g)", "carbs": Float value representing the carbohydrates in grams (g), "proteins": Float value representing the proteins in grams (g), "fats": Float value representing the fats in grams (g)}]}""",
                     },
                     {
                         "type": "image_url",
