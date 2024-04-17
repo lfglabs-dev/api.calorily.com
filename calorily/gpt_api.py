@@ -51,7 +51,8 @@ async def send_improve_image_to_gpt_api(
 ):
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
     payload = {
-        "model": "gpt-4-vision-preview",
+        "model": "gpt-4-turbo",
+        "response_format": {"type": "json_object"},
         "messages": [
             {
                 "role": "user",
@@ -62,7 +63,7 @@ async def send_improve_image_to_gpt_api(
 Previous response:
 """
                         + str(prev_response)
-                        + "Remark:\n\""
+                        + 'Remark:\n"'
                         + str(remark)
                         + """\"\nExpected format:
 {"name": "Name of the food (e.g., Pizza)", "ingredients": [{"name": "Name of the ingredient", "amount": "Estimated amount of this ingredient in grams (g)", "carbs": Float value representing the carbohydrates in grams (g), "proteins": Float value representing the proteins in grams (g), "fats": Float value representing the fats in grams (g)}]}""",
