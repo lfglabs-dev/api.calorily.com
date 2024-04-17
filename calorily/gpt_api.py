@@ -35,6 +35,8 @@ async def send_image_to_gpt_api(session, api_key, encoded_image):
             print("ORIGINAL MESSAGE NORMAL:", message_content)
             try:
                 output = json.loads(clean_json(message_content))
+                if "error" in output:
+                    return {"error": "model_error", "response": output["error"]}
             except Exception as parsingException:
                 return {"error": str(parsingException), "response": message_content}
             print("JSONED MESSAGED:", output)
