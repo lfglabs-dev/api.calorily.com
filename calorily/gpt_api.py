@@ -19,6 +19,7 @@ async def send_image_to_gpt_api(session, api_key, encoded_image):
                     {
                         "type": "image_url",
                         "image_url": {"url": f"data:image/jpeg;base64,{encoded_image}"},
+                        "detail": "high",
                     },
                 ],
             }
