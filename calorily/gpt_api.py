@@ -7,7 +7,7 @@ from utils import clean_json, ensure_typing
 async def send_image_to_gpt_api(session, api_key, encoded_image):
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
     payload = {
-        "model": "gpt-4-vision-preview",
+        "model": "gpt-4o",
         "messages": [
             {
                 "role": "user",
@@ -56,7 +56,7 @@ async def send_improve_image_to_gpt_api(
 ):
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
     payload = {
-        "model": "gpt-4-turbo",
+        "model": "gpt-4o",
         "response_format": {"type": "json_object"},
         "messages": [
             {
@@ -75,7 +75,10 @@ Previous response:
                     },
                     {
                         "type": "image_url",
-                        "image_url": {"url": f"data:image/jpeg;base64,{encoded_image}"},
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{encoded_image}",
+                            "detail": "high",
+                        },
                     },
                 ],
             }
