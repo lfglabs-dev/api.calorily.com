@@ -9,8 +9,8 @@ import json
 from typing import Callable, Optional
 from aiohttp.web import middleware
 import jwt.exceptions
-from features.meals.service import MealService
-from features.meals.handlers import MealHandlers
+from .features.meals.service import MealService
+from .features.meals.handlers import MealHandlers
 
 
 @middleware
@@ -55,10 +55,7 @@ class WebServer:
         self.dev_mode = config["server"]["dev"]
         self.session = aiohttp.ClientSession()
         self.jwt = PyJWT()
-
-        # Initialize services
-        self.meal_service = MealService()
-        self.meal_handlers = MealHandlers(self.meal_service)
+        self.config = config
 
     async def create_apple_session(self, request):
         try:
@@ -127,11 +124,22 @@ class WebServer:
                 {"error": "an unexpected error happened"}, status=500
             )
 
-    def build_app(self):
+    async def build_app(self):
+        # create db indexes
         app = web.Application(middlewares=[jwt_middleware], client_max_size=100000000)
-
         app["jwt"] = self.jwt
         app["jwt_secret"] = self.jwt_secret
+        app["config"] = self.config
+
+        # Initialize services
+        self.meal_service = MealService(
+            mongo_uri=self.config["mongodb"]["connection_string"],
+            database=self.config["mongodb"]["database"],
+            app=app,
+        )
+        await self.meal_service.initialize()
+
+        self.meal_handlers = MealHandlers(self.meal_service)
 
         async def close_session(app):
             await self.session.close()
@@ -143,8 +151,9 @@ class WebServer:
             [
                 web.post("/auth/apple", self.create_apple_session),
                 web.post("/auth/dev", self.create_dev_session),
-                web.post("/meals", self.meal_handlers.analyze_meal),
+                web.post("/meals", self.meal_handlers.submit_meal),
                 web.post("/meals/feedback", self.meal_handlers.submit_feedback),
+                web.get("/meals/sync", self.meal_handlers.sync_analyses),
                 web.get("/ws", self.meal_handlers.websocket_handler),
             ]
         )

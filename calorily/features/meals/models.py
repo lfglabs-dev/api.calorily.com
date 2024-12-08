@@ -1,10 +1,8 @@
-from typing import List, Optional
-from dataclasses import dataclass
+from typing import TypedDict, Optional, List
 from datetime import datetime
 
 
-@dataclass
-class Ingredient:
+class Ingredient(TypedDict):
     name: str
     amount: float
     carbs: float
@@ -12,10 +10,20 @@ class Ingredient:
     fats: float
 
 
-@dataclass
-class MealAnalysis:
-    meal_id: str
+class AnalysisResult(TypedDict):
     ingredients: List[Ingredient]
-    created_at: datetime
+    timestamp: datetime
+
+
+class FeedbackEntry(TypedDict):
+    feedback: str
+    timestamp: datetime
+
+
+class MealData(TypedDict):
+    meal_id: str
     user_id: str
-    status: str = "processing"
+    b64_img: str
+    created_at: datetime
+    latest_analysis: Optional[AnalysisResult]
+    feedback_history: List[FeedbackEntry]

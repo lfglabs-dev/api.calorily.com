@@ -5,3 +5,7 @@ api_key = "xxxxx"
 port = 8080
 dev = true
 jwt_secret = "your-secret-key-here"
+
+[mongodb]
+connection_string = "mongodb://localhost:27017"
+database = "calorily"

@@ -1,4 +1,4 @@
-from server import WebServer
+from .server import WebServer
 from aiohttp import web
 from typing import Any
 import toml
@@ -7,7 +7,7 @@ import os
 
 
 async def start_server(config: dict[str, Any]):
-    app = WebServer(config).build_app()
+    app = await WebServer(config).build_app()
     runner = web.AppRunner(app)
     await runner.setup()
     await web.TCPSite(runner, port=config["server"]["port"]).start()
