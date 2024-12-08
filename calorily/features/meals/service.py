@@ -7,6 +7,7 @@ import asyncio
 from aiohttp import web
 import json
 import aiohttp
+from ...gpt_api import analyze_meal
 
 
 class MealService:
@@ -155,38 +156,38 @@ class MealService:
         return True
 
     async def request_analysis(self, meal_data: MealData) -> None:
-        """Start an async task to analyze the meal image (mock implementation)."""
+        """Start an async task to analyze the meal image."""
 
         async def analyze_task():
             try:
-                # Mock analysis result
-                mock_ingredients = [
-                    {
-                        "name": "mock ingredient",
-                        "amount": 100,
-                        "carbs": 20,
-                        "proteins": 10,
-                        "fats": 5,
+                # Get the API key from the app config
+                api_key = self.app["config"]["openai"]["api_key"]
+
+                async with aiohttp.ClientSession() as session:
+                    # Send image to Vision API
+                    result = await analyze_meal(session, api_key, meal_data)
+
+                    if "error" in result:
+                        print(f"Analysis error: {result['error']}")
+                        return
+
+                    timestamp = datetime.utcnow()
+
+                    # Send notification first
+                    notification = {
+                        "meal_id": meal_data["meal_id"],
+                        "event": "analysis_complete",
+                        "data": {
+                            "ingredients": result["ingredients"],
+                            "timestamp": timestamp.isoformat(),
+                        },
                     }
-                ]
+                    await self.notify_user(meal_data["user_id"], notification)
 
-                timestamp = datetime.utcnow()
-
-                # Send notification first
-                notification = {
-                    "meal_id": meal_data["meal_id"],
-                    "event": "analysis_complete",
-                    "data": {
-                        "ingredients": mock_ingredients,
-                        "timestamp": timestamp.isoformat(),
-                    },
-                }
-                await self.notify_user(meal_data["user_id"], notification)
-
-                # Then store in database
-                await self.add_analysis(
-                    meal_data["meal_id"], mock_ingredients, timestamp
-                )
+                    # Then store in database
+                    await self.add_analysis(
+                        meal_data["meal_id"], result["ingredients"], timestamp
+                    )
 
             except Exception as e:
                 print(f"Analysis task error: {str(e)}")

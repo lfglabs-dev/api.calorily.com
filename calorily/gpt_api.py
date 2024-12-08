@@ -1,59 +1,75 @@
 import aiohttp
-import asyncio
 import json
-from utils import clean_json, ensure_typing
+from typing import TypedDict, Dict, Any, Optional, Union
+from .utils import clean_json, ensure_typing
+from .features.meals.models import MealData
 
 
-async def send_image_to_gpt_api(session, api_key, encoded_image):
-    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
-    payload = {
-        "model": "gpt-4o",
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": """Analyze the food image provided and output your best estimation in this json structured format, don't output the unit. When unsure, make up something plausible. Give an estimation of the quantities for the portion shown in the picture only. If impossible, just output the reason in field "error". {"name": "Name of the food (e.g., Pizza)", "ingredients": [{"name": "Name of the ingredient", "amount": "Estimated amount of this ingredient in grams (g)", "carbs": Float value representing the carbohydrates in grams (g), "proteins": Float value representing the proteins in grams (g), "fats": Float value representing the fats in grams (g)}]}""",
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{encoded_image}",
-                            "detail": "high",
-                        },
-                    },
-                ],
-            }
-        ],
-        "max_tokens": 3000,
-    }
-
-    try:
-        async with session.post(
-            "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
-        ) as response:
-            response_data = await response.json()
-            message_content = response_data["choices"][0]["message"]["content"]
-            print("ORIGINAL MESSAGE NORMAL:", message_content)
-            try:
-                output = json.loads(clean_json(message_content))
-                if "error" in output:
-                    return {"error": "model_error", "response": output["error"]}
-            except Exception as parsingException:
-                return {"error": str(parsingException), "response": message_content}
-            print("JSONED MESSAGED:", output)
-            ensure_typed = ensure_typing(output)
-            print("TYPED MESSAGE:", ensure_typed)
-            return ensure_typed
-
-    except Exception as e:
-        return {"error": str(e), "response": await response.text()}
+class AnalysisResponse(TypedDict):
+    ingredients: list[Dict[str, Any]]
 
 
-async def send_improve_image_to_gpt_api(
-    session, api_key, prev_response, remark, encoded_image
-):
+class AnalysisError(TypedDict):
+    error: str
+    response: str
+
+
+async def analyze_meal(
+    session: aiohttp.ClientSession,
+    api_key: str,
+    meal_data: MealData,
+) -> Union[AnalysisResponse, AnalysisError]:
+    """Analyze a meal image using GPT-4 Vision, with optional feedback consideration"""
+
+    # Determine if this is a feedback-based analysis
+    has_feedback = (
+        meal_data.get("feedback_history") and len(meal_data["feedback_history"]) > 0
+    )
+    latest_feedback = (
+        meal_data["feedback_history"][-1]["feedback"] if has_feedback else None
+    )
+    previous_analysis = meal_data.get("latest_analysis")
+
+    # Build the appropriate prompt
+    if has_feedback and previous_analysis:
+        # Convert datetime to string in previous analysis
+        serializable_analysis = {
+            "ingredients": previous_analysis["ingredients"],
+            "timestamp": previous_analysis["timestamp"].isoformat(),
+        }
+        prompt = f"""You previously analyzed this food image but received feedback. Please provide an updated analysis in JSON format.
+Previous analysis: {json.dumps(serializable_analysis)}
+Feedback: "{latest_feedback}"
+"""
+    else:
+        prompt = (
+            "Analyze this food image and provide a detailed breakdown in JSON format."
+        )
+
+    prompt += """
+Respond with a JSON object in this format:
+{
+    "ingredients": [
+        {
+            "name": "ingredient name",
+            "amount": number (grams),
+            "carbs": number (grams),
+            "proteins": number (grams),
+            "fats": number (grams)
+        }
+    ]
+}
+
+Requirements:
+- List each visible ingredient
+- Estimate amounts in grams
+- Calculate macronutrients in grams
+- Be precise with numbers
+- Don't include units
+- Make reasonable estimates when unsure
+- Respond only with valid JSON"""
+
+    # Prepare API request
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
     payload = {
         "model": "gpt-4o",
@@ -62,21 +78,11 @@ async def send_improve_image_to_gpt_api(
             {
                 "role": "user",
                 "content": [
-                    {
-                        "type": "text",
-                        "text": """You already analyzed the food image provided but made a mistake. Output your best estimation in a json structured format, don't output the units. When unsure, make up something plausible.
-Previous response:
-"""
-                        + str(prev_response)
-                        + 'Remark:\n"'
-                        + str(remark)
-                        + """\"\nExpected format:
-{"name": "Name of the food (e.g., Pizza)", "ingredients": [{"name": "Name of the ingredient", "amount": "Estimated amount of this ingredient in grams (g)", "carbs": Float value representing the carbohydrates in grams (g), "proteins": Float value representing the proteins in grams (g), "fats": Float value representing the fats in grams (g)}]}""",
-                    },
+                    {"type": "text", "text": prompt},
                     {
                         "type": "image_url",
                         "image_url": {
-                            "url": f"data:image/jpeg;base64,{encoded_image}",
+                            "url": f"data:image/jpeg;base64,{meal_data['b64_img']}",
                             "detail": "high",
                         },
                     },
@@ -92,12 +98,17 @@ Previous response:
         ) as response:
             response_data = await response.json()
             message_content = response_data["choices"][0]["message"]["content"]
-            print("ORIGINAL MESSAGE:", message_content)
+            print("GPT Analysis Response:", message_content)
+
             try:
                 output = json.loads(clean_json(message_content))
-            except Exception as parsingException:
-                return {"error": str(parsingException), "response": message_content}
-            return ensure_typing(output)
+                if "error" in output:
+                    return {"error": "model_error", "response": output["error"]}
+
+                return ensure_typing(output)
+
+            except Exception as parsing_error:
+                return {"error": str(parsing_error), "response": message_content}
 
     except Exception as e:
-        return {"error": str(e), "response": await response.text()}
+        return {"error": str(e), "response": "API call failed"}
