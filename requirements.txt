@@ -3,3 +3,4 @@ aiohttp_cors
 requests
 toml
 Pillow
+PyJWT

@@ -3,3 +3,5 @@ api_key = "xxxxx"
 
 [server]
 port = 8080
+dev = true
+jwt_secret = "your-secret-key-here"
