@@ -6,9 +6,13 @@ import json
 from datetime import datetime
 
 
+# local: "ws://localhost:8080/ws"
+BACKEND = "wss://api.calorily.com/ws"
+
+
 async def subscribe_to_meals(jwt_token: str):
     """Subscribe to meal analysis updates via WebSocket"""
-    url = f"ws://localhost:8080/ws?token={jwt_token}"
+    url = f"{BACKEND}?token={jwt_token}"
 
     async with aiohttp.ClientSession() as session:
         try:
