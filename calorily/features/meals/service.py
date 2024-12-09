@@ -112,6 +112,7 @@ class MealService:
             "created_at": meal_doc["created_at"],
             "latest_analysis": (
                 {
+                    "meal_name": latest_analysis["meal_name"],
                     "ingredients": latest_analysis["ingredients"],
                     "timestamp": latest_analysis["timestamp"],
                 }
@@ -122,7 +123,11 @@ class MealService:
         }
 
     async def add_analysis(
-        self, meal_id: str, ingredients: list[Ingredient], timestamp: datetime = None
+        self,
+        meal_id: str,
+        meal_name: str,
+        ingredients: list[Ingredient],
+        timestamp: datetime = None,
     ) -> bool:
         """Add a new analysis for a meal"""
         # Verify meal exists
@@ -137,6 +142,7 @@ class MealService:
         await self.analysis.insert_one(
             {
                 "meal_id": meal_id,
+                "meal_name": meal_name,
                 "ingredients": ingredients,
                 "timestamp": timestamp,
             }
@@ -178,6 +184,7 @@ class MealService:
                         "meal_id": meal_data["meal_id"],
                         "event": "analysis_complete",
                         "data": {
+                            "meal_name": result["meal_name"],
                             "ingredients": result["ingredients"],
                             "timestamp": timestamp.isoformat(),
                         },
@@ -186,7 +193,10 @@ class MealService:
 
                     # Then store in database
                     await self.add_analysis(
-                        meal_data["meal_id"], result["ingredients"], timestamp
+                        meal_data["meal_id"],
+                        result["meal_name"],
+                        result["ingredients"],
+                        timestamp,
                     )
 
             except Exception as e:
@@ -216,6 +226,7 @@ class MealService:
                 "$project": {
                     "_id": 0,
                     "meal_id": "$_id",
+                    "meal_name": "$latest_analysis.meal_name",
                     "ingredients": "$latest_analysis.ingredients",
                     "timestamp": "$latest_analysis.timestamp",
                 }

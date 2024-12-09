@@ -116,6 +116,7 @@ since=2024-01-20T15:30:45.123Z  // ISO 8601 timestamp
     "analyses": [
         {
             "meal_id": "uuid",
+            "meal_name": "string",
             "ingredients": [
                 {
                     "name": "string",
@@ -149,6 +150,7 @@ wss://api.calorily.com/ws?token=<jwt_token>
     "meal_id": "uuid",
     "event": "analysis_complete",
     "data": {
+        "meal_name": "string",
         "ingredients": [
             {
                 "name": "string",
@@ -157,7 +159,8 @@ wss://api.calorily.com/ws?token=<jwt_token>
                 "proteins": "number",
                 "fats": "number"
             }
-        ]
+        ],
+        "timestamp": "datetime"
     }
 }
 ```

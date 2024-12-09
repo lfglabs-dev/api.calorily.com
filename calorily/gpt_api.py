@@ -50,7 +50,7 @@ Feedback: "{latest_feedback}"
     prompt += """
 Respond with a JSON object in this format:
 {
-    "meal_name": "brief descriptive name of the meal",
+    "meal_name": "short name (2-3 words max)",
     "ingredients": [
         {
             "name": "ingredient name",
@@ -63,7 +63,7 @@ Respond with a JSON object in this format:
 }
 
 Requirements:
-- Provide a brief, descriptive meal name
+- Provide a very short, concise meal name (2-3 words maximum)
 - List each visible ingredient
 - All numeric values must be floating point numbers with decimal point (e.g., 100.0 not 100)
 - Estimate amounts in grams (e.g., 150.5)
