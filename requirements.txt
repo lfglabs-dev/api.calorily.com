@@ -6,3 +6,4 @@ Pillow
 PyJWT
 pymongo[srv]
 AsyncIOMotorClient
+cryptography>=3.4.0

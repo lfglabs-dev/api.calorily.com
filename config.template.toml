@@ -9,3 +9,6 @@ jwt_secret = "your-secret-key-here"
 [mongodb]
 connection_string = "mongodb://localhost:27017"
 database = "calorily"
+
+[apple]
+bundle_id = "com.calorily.app"

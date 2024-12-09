@@ -11,6 +11,10 @@ from aiohttp.web import middleware
 import jwt.exceptions
 from .features.meals.service import MealService
 from .features.meals.handlers import MealHandlers
+from jwt.algorithms import RSAAlgorithm
+import logging
+from time import time
+from typing import Dict
 
 
 @middleware
@@ -56,6 +60,38 @@ class WebServer:
         self.session = aiohttp.ClientSession()
         self.jwt = PyJWT()
         self.config = config
+        self.apple_bundle_id = config["apple"]["bundle_id"]
+        self.apple_keys_cache: Dict[str, dict] = {}
+        self.apple_keys_expiry = 0
+        self.APPLE_KEYS_TTL = 24 * 60 * 60  # 24 hours in seconds
+
+    async def load_apple_keys(self) -> None:
+        """Load Apple's public keys into cache."""
+        try:
+            async with self.session.get(
+                "https://appleid.apple.com/auth/keys"
+            ) as response:
+                if response.status != 200:
+                    logging.error("Failed to fetch Apple public keys")
+                    return
+
+                keys = await response.json()
+                # Index keys by kid for faster lookup
+                self.apple_keys_cache = {key["kid"]: key for key in keys["keys"]}
+                self.apple_keys_expiry = time() + self.APPLE_KEYS_TTL
+                logging.info("Successfully cached Apple public keys")
+        except Exception as e:
+            logging.error(f"Error loading Apple public keys: {e}")
+
+    async def get_apple_public_key(self, kid: str) -> Optional[dict]:
+        """Get Apple's public key from cache or fetch if needed."""
+        current_time = time()
+
+        # Refresh cache if expired or empty
+        if current_time > self.apple_keys_expiry or not self.apple_keys_cache:
+            await self.load_apple_keys()
+
+        return self.apple_keys_cache.get(kid)
 
     async def create_apple_session(self, request):
         try:
@@ -75,8 +111,44 @@ class WebServer:
             if not identity_token:
                 return web.json_response({"error": "invalid input"}, status=400)
 
-            user_id = str(uuid.uuid4())
+            # Decode the token header without verification to get the key ID
+            try:
+                header = jwt.get_unverified_header(identity_token)
+                kid = header["kid"]
+            except Exception as e:
+                logging.error(f"Error decoding token header: {e}")
+                return web.json_response({"error": "invalid token"}, status=400)
 
+            # Get the public key from Apple
+            key_data = await self.get_apple_public_key(kid)
+            if not key_data:
+                return web.json_response(
+                    {"error": "unable to verify token"}, status=400
+                )
+
+            # Convert the JWK to PEM format
+            public_key = RSAAlgorithm.from_jwk(json.dumps(key_data))
+
+            try:
+                # Verify and decode the token
+                payload = jwt.decode(
+                    identity_token,
+                    public_key,
+                    algorithms=["RS256"],
+                    audience=self.apple_bundle_id,
+                    issuer="https://appleid.apple.com",
+                )
+            except jwt.exceptions.InvalidTokenError as e:
+                logging.error(f"Token validation failed: {e}")
+                return web.json_response({"error": "invalid token"}, status=400)
+
+            # Extract the stable user ID from Apple's sub claim
+            user_id = payload["sub"]
+
+            # Log the successful authentication
+            logging.info(f"Apple Sign In successful for user: {user_id}")
+
+            # Create our own JWT
             token = self.jwt.encode(
                 {"user_id": user_id, "exp": datetime.utcnow() + timedelta(days=7)},
                 self.jwt_secret,
@@ -84,7 +156,9 @@ class WebServer:
             )
 
             return web.json_response({"jwt": token, "user_id": user_id})
-        except Exception:
+
+        except Exception as e:
+            logging.error(f"Unexpected error in create_apple_session: {e}")
             traceback.print_exc()
             return web.json_response(
                 {"error": "an unexpected error happened"}, status=500
@@ -145,6 +219,9 @@ class WebServer:
             await self.session.close()
 
         app.on_cleanup.append(close_session)
+
+        # Load Apple keys at startup
+        await self.load_apple_keys()
 
         # Updated routes
         app.add_routes(
