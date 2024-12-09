@@ -4,7 +4,6 @@ services:
   calorily:
     container_name: calorily
     build: .
-    command: python -u calorily
     restart: always
     ports:
       - 8080:8080
