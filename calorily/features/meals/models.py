@@ -11,6 +11,7 @@ class Ingredient(TypedDict):
 
 
 class AnalysisResult(TypedDict):
+    meal_name: str
     ingredients: List[Ingredient]
     timestamp: datetime
 

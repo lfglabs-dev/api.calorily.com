@@ -245,6 +245,7 @@ The application uses MongoDB with the following collections:
 ```json
 {
     "meal_id": "uuid",
+    "meal_name": "string",
     "ingredients": [
         {
             "name": "string",

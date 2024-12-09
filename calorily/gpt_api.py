@@ -6,6 +6,7 @@ from .features.meals.models import MealData
 
 
 class AnalysisResponse(TypedDict):
+    meal_name: str
     ingredients: list[Dict[str, Any]]
 
 
@@ -49,23 +50,25 @@ Feedback: "{latest_feedback}"
     prompt += """
 Respond with a JSON object in this format:
 {
+    "meal_name": "brief descriptive name of the meal",
     "ingredients": [
         {
             "name": "ingredient name",
-            "amount": number (grams),
-            "carbs": number (grams),
-            "proteins": number (grams),
-            "fats": number (grams)
+            "amount": 0.0,
+            "carbs": 0.0,
+            "proteins": 0.0,
+            "fats": 0.0
         }
     ]
 }
 
 Requirements:
+- Provide a brief, descriptive meal name
 - List each visible ingredient
-- Estimate amounts in grams
-- Calculate macronutrients in grams
-- Be precise with numbers
-- Don't include units
+- All numeric values must be floating point numbers with decimal point (e.g., 100.0 not 100)
+- Estimate amounts in grams (e.g., 150.5)
+- Calculate macronutrients in grams with one decimal precision
+- Don't include units in the numbers
 - Make reasonable estimates when unsure
 - Respond only with valid JSON"""
 
@@ -96,7 +99,23 @@ Requirements:
         async with session.post(
             "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
         ) as response:
+            if response.status != 200:
+                error_text = await response.text()
+                print(f"OpenAI API Error: Status {response.status}")
+                print(
+                    f"Headers: {headers}"
+                )  # Will show if Authorization is present (redacted)
+                print(f"Error response: {error_text}")
+                return {
+                    "error": f"API Error {response.status}",
+                    "response": f"OpenAI API error: {error_text}",
+                }
+
             response_data = await response.json()
+
+            if "choices" not in response_data:
+                return {"error": "Invalid API response", "response": str(response_data)}
+
             message_content = response_data["choices"][0]["message"]["content"]
             print("GPT Analysis Response:", message_content)
 
@@ -104,6 +123,13 @@ Requirements:
                 output = json.loads(clean_json(message_content))
                 if "error" in output:
                     return {"error": "model_error", "response": output["error"]}
+
+                # Validate required fields
+                if "meal_name" not in output or "ingredients" not in output:
+                    return {
+                        "error": "Missing required fields",
+                        "response": message_content,
+                    }
 
                 return ensure_typing(output)
 
