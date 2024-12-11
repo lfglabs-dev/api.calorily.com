@@ -8,6 +8,7 @@ from aiohttp import web
 import json
 import aiohttp
 from ...gpt_api import analyze_meal
+import traceback
 
 
 class MealService:
@@ -173,8 +174,31 @@ class MealService:
                     # Send image to Vision API
                     result = await analyze_meal(session, api_key, meal_data)
 
+                    if result is None:
+                        print(
+                            f"Analysis error: GPT API returned None for meal {meal_data['meal_id']}"
+                        )
+                        await self.notify_user(
+                            meal_data["user_id"],
+                            {
+                                "meal_id": meal_data["meal_id"],
+                                "event": "analysis_failed",
+                                "error": "GPT API returned no response",
+                            },
+                        )
+                        return
+
                     if "error" in result:
-                        print(f"Analysis error: {result['error']}")
+                        error_msg = f"Analysis error for meal {meal_data['meal_id']}: {result['error']}"
+                        print(error_msg)
+                        await self.notify_user(
+                            meal_data["user_id"],
+                            {
+                                "meal_id": meal_data["meal_id"],
+                                "event": "analysis_failed",
+                                "error": result["error"],
+                            },
+                        )
                         return
 
                     timestamp = datetime.utcnow()
@@ -200,7 +224,19 @@ class MealService:
                     )
 
             except Exception as e:
-                print(f"Analysis task error: {str(e)}")
+                error_msg = (
+                    f"Analysis task error for meal {meal_data['meal_id']}: {str(e)}"
+                )
+                print(error_msg)
+                traceback.print_exc()
+                await self.notify_user(
+                    meal_data["user_id"],
+                    {
+                        "meal_id": meal_data["meal_id"],
+                        "event": "analysis_failed",
+                        "error": "Internal server error during analysis",
+                    },
+                )
 
         # Start the analysis task without awaiting it
         asyncio.create_task(analyze_task())

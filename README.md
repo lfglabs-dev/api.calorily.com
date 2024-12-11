@@ -163,6 +163,12 @@ wss://api.calorily.com/ws?token=<jwt_token>
         "timestamp": "datetime"
     }
 }
+
+{
+    "meal_id": "uuid",
+    "event": "analysis_failed",
+    "error": "string"  // Human-readable error message
+}
 ```
 
 ## Development
