@@ -199,6 +199,7 @@ Received message at 2024-01-20 15:30:45
   "meal_id": "123e4567-e89b-12d3-a456-426614174000",
   "event": "analysis_complete",
   "data": {
+    "meal_name": "Chocolate Cake",
     "ingredients": [
       {
         "name": "mock ingredient",
