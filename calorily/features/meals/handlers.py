@@ -69,7 +69,12 @@ class MealHandlers:
                     {"error": "failed to add feedback"}, status=500
                 )
 
-            # Request a new analysis
+            # Add new feedback to meal_data optimistically
+            meal_data["feedback_history"].insert(
+                0, {"feedback": feedback_text, "timestamp": datetime.utcnow()}
+            )
+
+            # Request a new analysis with updated feedback
             await self.meal_service.request_analysis(meal_data)
 
             return web.json_response({"meal_id": meal_id, "status": "processing"})
