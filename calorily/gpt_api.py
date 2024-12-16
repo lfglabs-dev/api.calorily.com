@@ -50,10 +50,10 @@ Feedback: "{latest_feedback}"
     prompt += """
 Respond with a JSON object in this format:
 {
-    "meal_name": "short name (2-3 words max)",
+    "meal_name": "Short name (2-3 words max)",
     "ingredients": [
         {
-            "name": "ingredient name",
+            "name": "Ingredient name",
             "amount": 0.0,
             "carbs": 0.0,
             "proteins": 0.0,
