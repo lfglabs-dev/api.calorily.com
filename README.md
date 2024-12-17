@@ -130,9 +130,14 @@ Get the image associated with a specific meal.
 **Method:** `GET`  
 **Authentication:** Not Required
 
+**Query Parameters:**
+- `size` (optional): Maximum width/height in pixels. Image will be scaled proportionally.
+- `quality` (optional): JPEG compression quality (1-100). Default: 85. Ignored for PNGs.
+
 **Response:**
 - Content-Type: image/jpeg or image/png (depending on original image)
 - Binary image data
+- Cache-Control headers for optimal caching
 
 **Error Response (404):**
 ```json

@@ -145,8 +145,34 @@ class MealHandlers:
         """Handler for GET /meals/{meal_id}/image"""
         meal_id = request.match_info["meal_id"]
 
-        image_bytes, content_type = await self.meal_service.get_meal_image(meal_id)
+        # Get size parameter, default to None (original size)
+        try:
+            max_size = int(request.query.get("size", 0)) or None
+        except ValueError:
+            return web.json_response(
+                {"error": "size parameter must be a positive integer"}, status=400
+            )
+
+        # Get quality parameter, default to 85
+        try:
+            quality = int(request.query.get("quality", 85))
+            if not 1 <= quality <= 100:
+                raise ValueError("quality must be between 1 and 100")
+        except ValueError as e:
+            return web.json_response({"error": str(e)}, status=400)
+
+        image_bytes, content_type = await self.meal_service.get_meal_image(
+            meal_id, max_size=max_size, quality=quality
+        )
+
         if not image_bytes:
             return web.json_response({"error": "meal not found"}, status=404)
 
-        return web.Response(body=image_bytes, content_type=content_type)
+        return web.Response(
+            body=image_bytes,
+            content_type=content_type,
+            headers={
+                "Cache-Control": "public, max-age=31536000",  # Cache for 1 year
+                "Vary": "Accept-Encoding",  # Allow CDN compression
+            },
+        )

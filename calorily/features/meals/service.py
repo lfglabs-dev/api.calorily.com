@@ -12,6 +12,8 @@ import traceback
 import base64
 from bson.objectid import ObjectId
 import re
+from PIL import Image
+import io
 
 
 class MealService:
@@ -205,6 +207,9 @@ class MealService:
                         return
 
                     timestamp = datetime.utcnow()
+                    print(
+                        f"Got analysis result for meal {meal_data['meal_id']}: {result}"
+                    )
 
                     # Send notification first
                     notification = {
@@ -216,15 +221,18 @@ class MealService:
                             "timestamp": timestamp.isoformat(),
                         },
                     }
+                    print(f"Sending notification: {notification}")
                     await self.notify_user(meal_data["user_id"], notification)
 
                     # Then store in database
-                    await self.add_analysis(
+                    print(f"Storing analysis in database...")
+                    stored = await self.add_analysis(
                         meal_data["meal_id"],
                         result["meal_name"],
                         result["ingredients"],
                         timestamp,
                     )
+                    print(f"Analysis stored: {stored}")
 
             except Exception as e:
                 error_msg = (
@@ -295,11 +303,26 @@ class MealService:
         if "timestamp" in analysis:
             analysis["timestamp"] = analysis["timestamp"].isoformat()
 
+        # Ensure all required fields are present
+        expected_fields = {"meal_id", "meal_name", "ingredients", "timestamp"}
+        if not all(field in analysis for field in expected_fields):
+            print(f"Warning: Analysis missing fields. Found: {set(analysis.keys())}")
+
         return analysis
 
-    async def get_meal_image(self, meal_id: str) -> tuple[bytes, str]:
-        """Get the meal image and detect its format.
-        Returns tuple of (image_bytes, content_type)"""
+    async def get_meal_image(
+        self, meal_id: str, max_size: Optional[int] = None, quality: int = 85
+    ) -> tuple[bytes, str]:
+        """Get the meal image and optionally resize/compress it.
+
+        Args:
+            meal_id: The meal UUID
+            max_size: Optional maximum width/height. Image will be scaled proportionally.
+            quality: JPEG compression quality (1-100), ignored for PNGs.
+
+        Returns:
+            tuple of (image_bytes, content_type)
+        """
         meal = await self.db.meals.find_one({"meal_id": meal_id})
 
         if not meal or not meal.get("b64_img"):
@@ -311,15 +334,38 @@ class MealService:
 
         if format_match:
             image_format = format_match.group(1)
-            # Remove the header
             b64_img = b64_img.split(",")[1]
         else:
-            # Assume JPEG if no header
             image_format = "jpeg"
 
         try:
+            # Decode base64 to bytes
             image_bytes = base64.b64decode(b64_img)
-            content_type = f"image/{image_format}"
-            return image_bytes, content_type
-        except Exception:
+
+            # Convert to PIL Image for processing
+            image = Image.open(io.BytesIO(image_bytes))
+
+            # Resize if max_size is specified
+            if max_size:
+                original_size = max(image.size)
+                if original_size > max_size:
+                    ratio = max_size / original_size
+                    new_size = tuple(int(dim * ratio) for dim in image.size)
+                    image = image.resize(new_size, Image.Resampling.LANCZOS)
+
+            # Convert to output format
+            output = io.BytesIO()
+            if image_format.lower() in ("jpg", "jpeg"):
+                # Save as JPEG with specified quality
+                image = image.convert("RGB")  # Remove alpha channel if present
+                image.save(output, format="JPEG", quality=quality, optimize=True)
+            else:
+                # For PNG, use optimize flag
+                image.save(output, format="PNG", optimize=True)
+
+            output.seek(0)
+            return output.getvalue(), f"image/{image_format}"
+
+        except Exception as e:
+            print(f"Error processing image: {e}")
             return None, None
