@@ -25,61 +25,85 @@ async def analyze_meal(
     print(f"[GPT Debug] Starting analysis for meal {meal_data['meal_id']}")
     print(f"[GPT Debug] Has feedback: {bool(meal_data.get('feedback_history'))}")
 
-    # Build the prompt
-    try:
-        # Determine if this is a feedback-based analysis
-        has_feedback = (
-            meal_data.get("feedback_history") and len(meal_data["feedback_history"]) > 0
-        )
-        latest_feedback = (
-            meal_data["feedback_history"][-1]["feedback"] if has_feedback else None
-        )
-        previous_analysis = meal_data.get("latest_analysis")
+    # Determine if this is a feedback-based analysis
+    has_feedback = (
+        meal_data.get("feedback_history") and len(meal_data["feedback_history"]) > 0
+    )
+    latest_feedback = (
+        meal_data["feedback_history"][-1]["feedback"] if has_feedback else None
+    )
+    previous_analysis = meal_data.get("latest_analysis")
 
-        # Build the appropriate prompt
-        if has_feedback and previous_analysis:
-            print(f"[GPT Debug] Using feedback: {latest_feedback}")
-            print(f"[GPT Debug] Previous analysis: {previous_analysis}")
-            # Convert datetime to string in previous analysis
-            serializable_analysis = {
-                "ingredients": previous_analysis["ingredients"],
-                "timestamp": previous_analysis["timestamp"].isoformat(),
-            }
-            prompt = f"""You previously analyzed this food image but received feedback. Please provide an updated analysis in JSON format.
+    # Build the appropriate prompt
+    if has_feedback and previous_analysis:
+        print(f"[GPT Debug] Using feedback: {latest_feedback}")
+        print(f"[GPT Debug] Previous analysis: {previous_analysis}")
+        # Convert datetime to string in previous analysis
+        serializable_analysis = {
+            "ingredients": previous_analysis["ingredients"],
+            "timestamp": previous_analysis["timestamp"].isoformat(),
+        }
+        prompt = f"""You previously analyzed this food image but received feedback. Please provide an updated analysis in JSON format.
 Previous analysis: {json.dumps(serializable_analysis)}
 Feedback: "{latest_feedback}"
 """
-        else:
-            prompt = "Analyze this food image and provide a detailed breakdown in JSON format."
-        print(f"[GPT Debug] Using prompt: {prompt}")
+    else:
+        prompt = (
+            "Analyze this food image and provide a detailed breakdown in JSON format."
+        )
 
-        # Prepare API request
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}",
+    prompt += """
+Respond with a JSON object in this format:
+{
+    "meal_name": "Short name (2-3 words max)",
+    "ingredients": [
+        {
+            "name": "Ingredient name",
+            "amount": 0.0,
+            "carbs": 0.0,
+            "proteins": 0.0,
+            "fats": 0.0
         }
-        payload = {
-            "model": "gpt-4o",
-            "response_format": {"type": "json_object"},
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{meal_data['b64_img']}",
-                                "detail": "high",
-                            },
+    ]
+}
+
+Requirements:
+- Provide a very short, concise meal name (2-3 words maximum)
+- List each visible ingredient
+- All numeric values must be floating point numbers with decimal point (e.g., 100.0 not 100)
+- Estimate amounts in grams (e.g., 150.5)
+- Calculate macronutrients in grams with one decimal precision
+- Don't include units in the numbers
+- Make reasonable estimates when unsure
+- Respond only with valid JSON"""
+
+    print(f"[GPT Debug] Using prompt: {prompt}")
+
+    # Prepare API request
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
+    payload = {
+        "model": "gpt-4o",
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{meal_data['b64_img']}",
+                            "detail": "high",
                         },
-                    ],
-                }
-            ],
-            "max_tokens": 2500,
-        }
-        print(f"[GPT Debug] Sending request to OpenAI API...")
+                    },
+                ],
+            }
+        ],
+        "max_tokens": 2500,
+    }
+    print(f"[GPT Debug] Sending request to OpenAI API...")
 
+    try:
         async with session.post(
             "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
         ) as response:
