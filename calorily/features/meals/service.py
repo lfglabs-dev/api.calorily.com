@@ -14,6 +14,8 @@ from bson.objectid import ObjectId
 import re
 from PIL import Image
 import io
+import time
+from functools import lru_cache
 
 
 class MealService:
@@ -27,6 +29,8 @@ class MealService:
         # WebSocket connections mapped by user_id
         self.ws_connections: Dict[str, set[web.WebSocketResponse]] = {}
         self.app = app
+        # Create an in-memory cache for processed images
+        self._image_cache = {}
 
     async def register_ws_connection(
         self, user_id: str, ws: web.WebSocketResponse
@@ -310,25 +314,45 @@ class MealService:
 
         return analysis
 
+    @lru_cache(maxsize=100)  # Cache up to 100 different image variations
+    def _get_cache_key(
+        self, meal_id: str, max_size: Optional[int], quality: int
+    ) -> str:
+        return f"{meal_id}_{max_size}_{quality}"
+
     async def get_meal_image(
-        self, meal_id: str, max_size: Optional[int] = None, quality: int = 85
+        self,
+        meal_id: str,
+        max_size: Optional[int] = None,
+        quality: Optional[int] = None,
     ) -> tuple[bytes, str]:
-        """Get the meal image and optionally resize/compress it.
+        """Get the meal image and optionally resize/compress it."""
+        start_time = time.time()
+        cache_key = self._get_cache_key(meal_id, max_size, quality)
 
-        Args:
-            meal_id: The meal UUID
-            max_size: Optional maximum width/height. Image will be scaled proportionally.
-            quality: JPEG compression quality (1-100), ignored for PNGs.
+        # Debug MongoDB query
+        print(f"[MongoDB Debug] Checking indexes...")
+        indexes = await self.meals.index_information()
+        print(f"[MongoDB Debug] Available indexes: {indexes}")
 
-        Returns:
-            tuple of (image_bytes, content_type)
-        """
-        meal = await self.db.meals.find_one({"meal_id": meal_id})
+        # Explain the query
+        explanation = await self.meals.find(
+            {"meal_id": meal_id}, projection={"b64_img": 1, "_id": 0}
+        ).explain()
+        print(f"[MongoDB Debug] Query explanation: {explanation}")
+
+        # Fetch only the b64_img field from DB
+        meal = await self.meals.find_one(
+            {"meal_id": meal_id}, projection={"b64_img": 1, "_id": 0}
+        )
+        db_time = time.time() - start_time
+        print(f"[Image Timing] DB fetch: {db_time:.3f}s")
 
         if not meal or not meal.get("b64_img"):
             return None, None
 
-        # Extract the image format from base64 header
+        # Extract format and header
+        format_start = time.time()
         b64_img = meal["b64_img"]
         format_match = re.match(r"data:image/(\w+);base64,", b64_img)
 
@@ -337,34 +361,57 @@ class MealService:
             b64_img = b64_img.split(",")[1]
         else:
             image_format = "jpeg"
+        format_time = time.time() - format_start
+        print(f"[Image Timing] Format detection: {format_time:.3f}s")
 
         try:
-            # Decode base64 to bytes
+            # Decode base64
+            decode_start = time.time()
             image_bytes = base64.b64decode(b64_img)
+            decode_time = time.time() - decode_start
+            print(f"[Image Timing] Base64 decode: {decode_time:.3f}s")
 
-            # Convert to PIL Image for processing
-            image = Image.open(io.BytesIO(image_bytes))
+            # Only process image if resize or quality is requested
+            if max_size is not None or quality is not None:
+                # Load image
+                load_start = time.time()
+                image = Image.open(io.BytesIO(image_bytes))
+                load_time = time.time() - load_start
+                print(f"[Image Timing] Image load: {load_time:.3f}s")
 
-            # Resize if max_size is specified
-            if max_size:
-                original_size = max(image.size)
-                if original_size > max_size:
-                    ratio = max_size / original_size
-                    new_size = tuple(int(dim * ratio) for dim in image.size)
-                    image = image.resize(new_size, Image.Resampling.LANCZOS)
+                # Resize if needed
+                resize_start = time.time()
+                if max_size:
+                    original_size = max(image.size)
+                    if original_size > max_size:
+                        ratio = max_size / original_size
+                        new_size = tuple(int(dim * ratio) for dim in image.size)
+                        image = image.resize(new_size, Image.Resampling.LANCZOS)
+                resize_time = time.time() - resize_start
+                print(f"[Image Timing] Resize: {resize_time:.3f}s")
 
-            # Convert to output format
-            output = io.BytesIO()
-            if image_format.lower() in ("jpg", "jpeg"):
-                # Save as JPEG with specified quality
-                image = image.convert("RGB")  # Remove alpha channel if present
-                image.save(output, format="JPEG", quality=quality, optimize=True)
-            else:
-                # For PNG, use optimize flag
-                image.save(output, format="PNG", optimize=True)
+                # Save with quality if specified
+                save_start = time.time()
+                output = io.BytesIO()
+                save_params = {"optimize": True}
+                if quality is not None:
+                    save_params["quality"] = quality
 
-            output.seek(0)
-            return output.getvalue(), f"image/{image_format}"
+                if image_format.lower() in ("jpg", "jpeg"):
+                    image = image.convert("RGB")
+                    image.save(output, format="JPEG", **save_params)
+                else:
+                    image.save(output, format="PNG", optimize=True)
+                output.seek(0)
+                save_time = time.time() - save_start
+                print(f"[Image Timing] Save/compress: {save_time:.3f}s")
+
+                image_bytes = output.getvalue()
+
+            total_time = time.time() - start_time
+            print(f"[Image Timing] Total processing: {total_time:.3f}s")
+
+            return image_bytes, f"image/{image_format}"
 
         except Exception as e:
             print(f"Error processing image: {e}")
