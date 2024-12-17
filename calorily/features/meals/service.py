@@ -9,6 +9,9 @@ import json
 import aiohttp
 from ...gpt_api import analyze_meal
 import traceback
+import base64
+from bson.objectid import ObjectId
+import re
 
 
 class MealService:
@@ -277,3 +280,46 @@ class MealService:
             analysis["timestamp"] = analysis["timestamp"].isoformat()
 
         return analyses
+
+    async def get_meal_analysis(self, meal_id: str) -> dict:
+        """Get the latest analysis for a specific meal."""
+        analysis = await self.analysis.find_one(
+            {"meal_id": meal_id}, sort=[("timestamp", -1)]
+        )
+
+        if not analysis:
+            return None
+
+        # Remove MongoDB _id field and convert datetime to ISO string
+        analysis.pop("_id", None)
+        if "timestamp" in analysis:
+            analysis["timestamp"] = analysis["timestamp"].isoformat()
+
+        return analysis
+
+    async def get_meal_image(self, meal_id: str) -> tuple[bytes, str]:
+        """Get the meal image and detect its format.
+        Returns tuple of (image_bytes, content_type)"""
+        meal = await self.db.meals.find_one({"meal_id": meal_id})
+
+        if not meal or not meal.get("b64_img"):
+            return None, None
+
+        # Extract the image format from base64 header
+        b64_img = meal["b64_img"]
+        format_match = re.match(r"data:image/(\w+);base64,", b64_img)
+
+        if format_match:
+            image_format = format_match.group(1)
+            # Remove the header
+            b64_img = b64_img.split(",")[1]
+        else:
+            # Assume JPEG if no header
+            image_format = "jpeg"
+
+        try:
+            image_bytes = base64.b64decode(b64_img)
+            content_type = f"image/{image_format}"
+            return image_bytes, content_type
+        except Exception:
+            return None, None

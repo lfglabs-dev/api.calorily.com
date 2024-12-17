@@ -98,7 +98,50 @@ Submits feedback for a meal and triggers a new analysis. The new analysis result
 }
 ```
 
-### 5. Sync Meal Analyses
+### 5. Get Meal Info
+Get detailed information about a specific meal and its latest analysis.
+
+**Endpoint:** `/meals/{meal_id}`  
+**Method:** `GET`  
+**Authentication:** Not Required
+
+**Response:**
+```json
+{
+    "meal_id": "uuid",
+    "meal_name": "string",
+    "ingredients": [
+        {
+            "name": "string",
+            "amount": "number",
+            "carbs": "number",
+            "proteins": "number",
+            "fats": "number"
+        }
+    ],
+    "timestamp": "datetime"
+}
+```
+
+### 6. Get Meal Image
+Get the image associated with a specific meal.
+
+**Endpoint:** `/meals/{meal_id}/image`  
+**Method:** `GET`  
+**Authentication:** Not Required
+
+**Response:**
+- Content-Type: image/jpeg or image/png (depending on original image)
+- Binary image data
+
+**Error Response (404):**
+```json
+{
+    "error": "meal not found"
+}
+```
+
+### 7. Sync Meal Analyses
 Get the latest analysis for each meal that has been updated since a given timestamp.
 
 **Endpoint:** `/meals/sync`  
@@ -132,7 +175,7 @@ since=2024-01-20T15:30:45.123Z  // ISO 8601 timestamp
 }
 ```
 
-### 6. WebSocket Updates
+### 8. WebSocket Updates
 Connects to WebSocket to receive real-time updates for meal analyses.
 
 **Endpoint:** `/ws`  

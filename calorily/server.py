@@ -20,7 +20,11 @@ from typing import Dict
 @middleware
 async def jwt_middleware(request: web.Request, handler: Callable) -> web.Response:
     # Skip middleware for non-protected routes
-    if request.path in ["/auth/apple", "/auth/dev"]:
+    if (
+        request.path in ["/auth/apple", "/auth/dev"]
+        or request.path.startswith("/meals/")
+        and request.method == "GET"
+    ):
         return await handler(request)
 
     # Handle WebSocket authentication differently (token in query params)
@@ -231,6 +235,8 @@ class WebServer:
                 web.post("/meals", self.meal_handlers.submit_meal),
                 web.post("/meals/feedback", self.meal_handlers.submit_feedback),
                 web.get("/meals/sync", self.meal_handlers.sync_analyses),
+                web.get("/meals/{meal_id}", self.meal_handlers.get_meal_analysis),
+                web.get("/meals/{meal_id}/image", self.meal_handlers.get_meal_image),
                 web.get("/ws", self.meal_handlers.websocket_handler),
             ]
         )

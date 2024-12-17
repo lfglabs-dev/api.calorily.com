@@ -129,3 +129,24 @@ class MealHandlers:
             return web.json_response(
                 {"error": "an unexpected error occurred"}, status=500
             )
+
+    async def get_meal_analysis(self, request: web.Request) -> web.Response:
+        """Handler for GET /meals/{meal_id}"""
+        meal_id = request.match_info["meal_id"]
+
+        analysis = await self.meal_service.get_meal_analysis(meal_id)
+
+        if not analysis:
+            return web.json_response({"error": "meal not found"}, status=404)
+
+        return web.json_response(analysis)
+
+    async def get_meal_image(self, request: web.Request) -> web.Response:
+        """Handler for GET /meals/{meal_id}/image"""
+        meal_id = request.match_info["meal_id"]
+
+        image_bytes, content_type = await self.meal_service.get_meal_image(meal_id)
+        if not image_bytes:
+            return web.json_response({"error": "meal not found"}, status=404)
+
+        return web.Response(body=image_bytes, content_type=content_type)
