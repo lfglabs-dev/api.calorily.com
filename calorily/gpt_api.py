@@ -43,17 +43,20 @@ async def analyze_meal(
             "ingredients": previous_analysis["ingredients"],
             "timestamp": previous_analysis["timestamp"].isoformat(),
         }
-        prompt = f"""You previously analyzed this food image but received feedback. Please provide an updated analysis in JSON format.
-Previous analysis: {json.dumps(serializable_analysis)}
-Feedback: "{latest_feedback}"
+        prompt = f"""You are analyzing a food image. A previous analysis was provided, but received feedback indicating it might be incorrect.
+
+Previous analysis identified this as: {previous_analysis['meal_name']}
+With ingredients: {json.dumps(previous_analysis['ingredients'], indent=2)}
+
+User feedback states: "{latest_feedback}"
+
+Please provide a new analysis, taking this feedback into account. Your response must be a valid JSON object matching the format below.
 """
     else:
-        prompt = (
-            "Analyze this food image and provide a detailed breakdown in JSON format."
-        )
+        prompt = "You are analyzing a food image. Please identify the meal and its ingredients. Your response must be a valid JSON object matching the format below."
 
     prompt += """
-Respond with a JSON object in this format:
+Required JSON format:
 {
     "meal_name": "Short name (2-3 words max)",
     "ingredients": [
@@ -67,15 +70,16 @@ Respond with a JSON object in this format:
     ]
 }
 
-Requirements:
-- Provide a very short, concise meal name (2-3 words maximum)
-- List each visible ingredient
-- All numeric values must be floating point numbers with decimal point (e.g., 100.0 not 100)
-- Estimate amounts in grams (e.g., 150.5)
-- Calculate macronutrients in grams with one decimal precision
-- Don't include units in the numbers
-- Make reasonable estimates when unsure
-- Respond only with valid JSON"""
+Important requirements:
+1. Always respond with valid JSON
+2. Keep meal_name very short (2-3 words maximum)
+3. List all visible ingredients
+4. All numbers must be floating point (e.g., 100.0 not 100)
+5. Amounts in grams
+6. Macronutrients in grams with one decimal
+7. Make reasonable estimates if unsure
+8. Never include units in the numbers
+9. Never include additional fields or explanations outside the JSON"""
 
     print(f"[GPT Debug] Using prompt: {prompt}")
 
@@ -125,6 +129,14 @@ Requirements:
 
             message_content = response_data["choices"][0]["message"]["content"]
             print(f"[GPT Debug] Message content: {message_content}")
+
+            # Check for None content or refusal
+            if message_content is None:
+                refusal = response_data["choices"][0]["message"].get(
+                    "refusal", "No response from model"
+                )
+                print(f"[GPT Debug] Model refused or returned null: {refusal}")
+                return {"error": "Model refused to analyze", "response": refusal}
 
             try:
                 output = json.loads(clean_json(message_content))
