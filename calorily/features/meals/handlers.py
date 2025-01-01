@@ -69,9 +69,10 @@ class MealHandlers:
                     {"error": "failed to add feedback"}, status=500
                 )
 
-            # Add new feedback to meal_data optimistically
+            # Add new feedback to meal_data optimistically with ISO formatted timestamp
+            current_time = datetime.utcnow()
             meal_data["feedback_history"].insert(
-                0, {"feedback": feedback_text, "timestamp": datetime.utcnow()}
+                0, {"feedback": feedback_text, "timestamp": current_time.isoformat()}
             )
 
             # Request a new analysis with updated feedback
