@@ -32,28 +32,20 @@ async def analyze_meal(
     latest_feedback = (
         meal_data["feedback_history"][-1]["feedback"] if has_feedback else None
     )
-    previous_analysis = meal_data.get("latest_analysis")
 
     # Build the appropriate prompt
-    if has_feedback and previous_analysis:
+    if has_feedback:
         print(f"[GPT Debug] Using feedback: {latest_feedback}")
-        print(f"[GPT Debug] Previous analysis: {previous_analysis}")
-        # Convert datetime to string in previous analysis
-        serializable_analysis = {
-            "ingredients": previous_analysis["ingredients"],
-            "timestamp": previous_analysis["timestamp"].isoformat(),
-        }
-        prompt = f"""You are analyzing a food image. A previous analysis was provided, but received feedback indicating it might be incorrect.
-
-Previous analysis identified this as: {previous_analysis['meal_name']}
-With ingredients: {json.dumps(previous_analysis['ingredients'], indent=2)}
+        prompt = f"""You are analyzing a food image. The previous analysis received feedback indicating it might be incorrect.
 
 User feedback states: "{latest_feedback}"
 
-Please provide a new analysis, taking this feedback into account. Your response must be a valid JSON object matching the format below.
+Please provide a new analysis, taking this feedback into account. If this is not a food image, respond with an error message.
+Your response must be a valid JSON object matching the format below.
 """
     else:
-        prompt = "You are analyzing a food image. Please identify the meal and its ingredients. Your response must be a valid JSON object matching the format below."
+        prompt = """You are analyzing a food image. Please identify the meal and its ingredients. If this is not a food image, respond with an error message.
+Your response must be a valid JSON object matching the format below."""
 
     prompt += """
 Required JSON format:
@@ -62,7 +54,7 @@ Required JSON format:
     "ingredients": [
         {
             "name": "Ingredient name",
-            "amount": 0.0,
+            "weight": 0.0,
             "carbs": 0.0,
             "proteins": 0.0,
             "fats": 0.0
@@ -70,12 +62,17 @@ Required JSON format:
     ]
 }
 
+Alternative format for non-food images or errors:
+{
+    "error": "Clear explanation of why analysis cannot be performed"
+}
+
 Important requirements:
 1. Always respond with valid JSON
 2. Keep meal_name very short (2-3 words maximum)
 3. List all visible ingredients
 4. All numbers must be floating point (e.g., 100.0 not 100)
-5. Amounts in grams
+5. Weight in grams
 6. Macronutrients in grams with one decimal
 7. Make reasonable estimates if unsure
 8. Never include units in the numbers
@@ -142,8 +139,9 @@ Important requirements:
                 output = json.loads(clean_json(message_content))
                 print(f"[GPT Debug] Parsed JSON output: {output}")
 
+                # Check if the model returned an error
                 if "error" in output:
-                    return {"error": "model_error", "response": output["error"]}
+                    return {"error": "analysis_error", "response": output["error"]}
 
                 # Validate required fields
                 if "meal_name" not in output or "ingredients" not in output:

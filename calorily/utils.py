@@ -17,7 +17,7 @@ def calculate_calories(carbs, proteins, fats):
 def ensure_typing(data):
     if "ingredients" in data:
         for ingredient in data["ingredients"]:
-            ingredient["amount"] = extract_float(ingredient.get("amount", 0))
+            ingredient["weight"] = extract_float(ingredient.get("weight", 0))
             ingredient["carbs"] = extract_float(ingredient.get("carbs", 0))
             ingredient["proteins"] = extract_float(ingredient.get("proteins", 0))
             ingredient["fats"] = extract_float(ingredient.get("fats", 0))

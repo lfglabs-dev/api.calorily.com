@@ -4,7 +4,7 @@ from datetime import datetime
 
 class Ingredient(TypedDict):
     name: str
-    amount: float
+    weight: float
     carbs: float
     proteins: float
     fats: float

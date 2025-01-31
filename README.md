@@ -113,7 +113,7 @@ Get detailed information about a specific meal and its latest analysis.
     "ingredients": [
         {
             "name": "string",
-            "amount": "number",
+            "weight": "number",
             "carbs": "number",
             "proteins": "number",
             "fats": "number"
@@ -168,7 +168,7 @@ since=2024-01-20T15:30:45.123Z  // ISO 8601 timestamp
             "ingredients": [
                 {
                     "name": "string",
-                    "amount": "number",
+                    "weight": "number",
                     "carbs": "number",
                     "proteins": "number",
                     "fats": "number"
@@ -202,7 +202,7 @@ wss://api.calorily.com/ws?token=<jwt_token>
         "ingredients": [
             {
                 "name": "string",
-                "amount": "number",
+                "weight": "number",
                 "carbs": "number",
                 "proteins": "number",
                 "fats": "number"
@@ -257,7 +257,7 @@ Received message at 2024-01-20 15:30:45
     "ingredients": [
       {
         "name": "mock ingredient",
-        "amount": 100,
+        "weight": 100,
         "carbs": 20,
         "proteins": 10,
         "fats": 5
@@ -307,7 +307,7 @@ The application uses MongoDB with the following collections:
     "ingredients": [
         {
             "name": "string",
-            "amount": "number",
+            "weight": "number",
             "carbs": "number",
             "proteins": "number",
             "fats": "number"
