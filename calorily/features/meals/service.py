@@ -416,3 +416,24 @@ class MealService:
         except Exception as e:
             print(f"Error processing image: {e}")
             return None, None
+
+    async def delete_meal(self, meal_id: str) -> bool:
+        """Delete a meal and all associated data (analysis, feedback)"""
+        try:
+            # Delete from all collections
+            meal_result = await self.meals.delete_one({"meal_id": meal_id})
+            await self.analysis.delete_many({"meal_id": meal_id})
+            await self.feedback.delete_many({"meal_id": meal_id})
+
+            # Clear from image cache if present
+            for key in list(self._image_cache.keys()):
+                if key.startswith(f"{meal_id}_"):
+                    self._image_cache.pop(key, None)
+
+            # Return True if the meal was found and deleted
+            return meal_result.deleted_count > 0
+
+        except Exception as e:
+            print(f"Error deleting meal {meal_id}: {e}")
+            traceback.print_exc()
+            return False

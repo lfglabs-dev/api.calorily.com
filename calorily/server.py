@@ -238,6 +238,7 @@ class WebServer:
                 web.get("/meals/{meal_id}", self.meal_handlers.get_meal_analysis),
                 web.get("/meals/{meal_id}/image", self.meal_handlers.get_meal_image),
                 web.get("/ws", self.meal_handlers.websocket_handler),
+                web.delete("/meals/{meal_id}", self.meal_handlers.delete_meal),
             ]
         )
 

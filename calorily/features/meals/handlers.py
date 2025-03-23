@@ -177,3 +177,32 @@ class MealHandlers:
                 "Vary": "Accept-Encoding",  # Allow CDN compression
             },
         )
+
+    async def delete_meal(self, request: web.Request) -> web.Response:
+        """Handler for DELETE /meals/{meal_id}"""
+        try:
+            meal_id = request.match_info["meal_id"]
+            user_id = request["user"]["user_id"]
+
+            # First check if the meal exists and belongs to this user
+            meal_data = await self.meal_service.fetch_meal(meal_id)
+
+            if not meal_data:
+                return web.json_response({"error": "meal not found"}, status=404)
+
+            if meal_data["user_id"] != user_id:
+                return web.json_response({"error": "unauthorized"}, status=403)
+
+            # Delete the meal and all associated data
+            success = await self.meal_service.delete_meal(meal_id)
+
+            if not success:
+                return web.json_response({"error": "failed to delete meal"}, status=500)
+
+            return web.json_response({"status": "deleted", "meal_id": meal_id})
+
+        except Exception:
+            traceback.print_exc()
+            return web.json_response(
+                {"error": "an unexpected error occurred"}, status=500
+            )

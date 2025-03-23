@@ -219,6 +219,41 @@ wss://api.calorily.com/ws?token=<jwt_token>
 }
 ```
 
+### 9. Delete Meal
+Deletes a meal and all associated data (analysis, feedback).
+
+**Endpoint:** `/meals/{meal_id}`  
+**Method:** `DELETE`  
+**Authentication:** Required
+
+**Response (Success):**
+```json
+{
+    "status": "deleted",
+    "meal_id": "uuid"
+}
+```
+
+**Error Responses:**
+- 404: Meal not found
+```json
+{
+    "error": "meal not found"
+}
+```
+- 403: Unauthorized (trying to delete another user's meal)
+```json
+{
+    "error": "unauthorized"
+}
+```
+- 500: Server error
+```json
+{
+    "error": "failed to delete meal"
+}
+```
+
 ## Development
 
 ### Testing WebSocket Connection
