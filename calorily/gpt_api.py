@@ -83,7 +83,7 @@ Important requirements:
     # Prepare API request
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
     payload = {
-        "model": "gpt-4o",
+        "model": "gpt-4.1-2025-04-14",
         "response_format": {"type": "json_object"},
         "messages": [
             {
