@@ -80,33 +80,31 @@ Important requirements:
 
     print(f"[GPT Debug] Using prompt: {prompt}")
 
-    # Prepare API request
+    # Prepare API request (Responses API)
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
     payload = {
-        "model": "gpt-4.1-2025-04-14",
-        "response_format": {"type": "json_object"},
-        "messages": [
+        "model": "gpt-5",
+        "text": {"format": {"type": "json_object"}},
+        "reasoning": {"effort": "minimal"},
+        "input": [
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": prompt},
+                    {"type": "input_text", "text": prompt},
                     {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{meal_data['b64_img']}",
-                            "detail": "high",
-                        },
+                        "type": "input_image",
+                        "image_url": f"data:image/jpeg;base64,{meal_data['b64_img']}",
                     },
                 ],
             }
         ],
-        "max_tokens": 2500,
+        # "max_output_tokens": 2500,
     }
-    print(f"[GPT Debug] Sending request to OpenAI API...")
+    print(f"[GPT Debug] Sending request to OpenAI Responses API...")
 
     try:
         async with session.post(
-            "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
+            "https://api.openai.com/v1/responses", headers=headers, json=payload
         ) as response:
             if response.status != 200:
                 error_text = await response.text()
@@ -118,22 +116,57 @@ Important requirements:
                 }
 
             response_data = await response.json()
-            print(f"[GPT Debug] Got response from OpenAI: {response_data}")
+            print(
+                f"[GPT Debug] Got response from OpenAI Responses API: {response_data}"
+            )
 
-            if "choices" not in response_data:
-                print("[GPT Debug] No choices in response")
+            # Extract assistant text from Responses API
+            if "output" not in response_data:
+                print("[GPT Debug] No output in response")
                 return {"error": "Invalid API response", "response": str(response_data)}
 
-            message_content = response_data["choices"][0]["message"]["content"]
+            def extract_output_text(data: Dict[str, Any]) -> Optional[str]:
+                try:
+                    output_items = data.get("output") or []
+                    for item in output_items:
+                        if (
+                            item.get("type") == "message"
+                            and item.get("role") == "assistant"
+                        ):
+                            content_list = item.get("content") or []
+                            texts: list[str] = []
+                            for c in content_list:
+                                if c.get("type") == "output_text" and isinstance(
+                                    c.get("text"), str
+                                ):
+                                    texts.append(c["text"])
+                            if texts:
+                                return "".join(texts)
+                    # Fallback: sometimes models put text directly at top-level convenience fields (SDKs), but
+                    # in raw HTTP it's usually within output -> message -> content
+                    return None
+                except Exception:
+                    return None
+
+            message_content = extract_output_text(response_data)
             print(f"[GPT Debug] Message content: {message_content}")
 
-            # Check for None content or refusal
+            # Check for None content or refusal-like responses
             if message_content is None:
-                refusal = response_data["choices"][0]["message"].get(
-                    "refusal", "No response from model"
-                )
-                print(f"[GPT Debug] Model refused or returned null: {refusal}")
-                return {"error": "Model refused to analyze", "response": refusal}
+                # Try to surface any error field if present
+                if "error" in response_data and isinstance(
+                    response_data["error"], dict
+                ):
+                    refusal_text = response_data["error"].get(
+                        "message", "No response from model"
+                    )
+                else:
+                    refusal_text = "No response from model"
+                print(f"[GPT Debug] Model returned no assistant text: {refusal_text}")
+                return {
+                    "error": "Model returned no assistant text",
+                    "response": refusal_text,
+                }
 
             try:
                 output = json.loads(clean_json(message_content))
